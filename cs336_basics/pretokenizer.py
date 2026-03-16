@@ -15,12 +15,12 @@ class ChunkPreTokenizer:
     # this is split pattrn for speical tokens. will look like this: "\<\|endoftext\|\>|\<\|somespeicaltoken\|\>"
     split_pattern = "|".join(escaped_tokens)
 
-    def __init__(self, file_path: str,  special_tokens=[], num_processes=4):
+    def __init__(self, file_path: str,  special_tokens=list[str], num_processes=4):
         self.file_path = file_path
 
         # if we have user input of speical tokens then update 
         if len(special_tokens) > 0:
-            ChunkPreTokenizer.special_tokens = special_tokens
+            ChunkPreTokenizer.special_tokens = [tok.encode('utf-8') for tok in special_tokens]
             ChunkPreTokenizer.escaped_tokens = [re.escape(tok)
                                                 for tok in ChunkPreTokenizer.special_tokens]
 
