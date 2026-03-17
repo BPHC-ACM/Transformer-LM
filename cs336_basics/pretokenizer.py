@@ -1,45 +1,41 @@
 import os
 from typing import BinaryIO
 from multiprocessing import Pool, Process
-from .config import NUM_PROCESSORS, TINYSTORIES_PATH, PAT
 from collections import Counter
 import regex as re
 
 
 class ChunkPreTokenizer:
-    special_tokens = [b"<|endoftext|>"]
-    endoftext = b"<|endoftext|>"
-    escaped_tokens = [re.escape(tok.decode('utf-8'))
-                      for tok in special_tokens]
-    
-    # this is split pattrn for speical tokens. will look like this: "\<\|endoftext\|\>|\<\|somespeicaltoken\|\>"
-    split_pattern = "|".join(escaped_tokens)
+    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
-    def __init__(self, file_path: str,  special_tokens=list[str], num_processes=4):
+    def __init__(self, file_path: str,  special_tokens: list[str] = [], num_processes=4):
         self.file_path = file_path
 
-        # if we have user input of speical tokens then update 
-        if len(special_tokens) > 0:
-            ChunkPreTokenizer.special_tokens = [tok.encode('utf-8') for tok in special_tokens]
-            ChunkPreTokenizer.escaped_tokens = [re.escape(tok)
-                                                for tok in ChunkPreTokenizer.special_tokens]
+        # if we have user input of speical tokens then update
+
+        self.special_tokens = [tok.encode('utf-8') for tok in special_tokens]
+        self.escaped_tokens = [re.escape(tok)
+                               for tok in special_tokens]
+        self.endoftext = b"<|endoftext|>"
+
+        # this is split pattrn for speical tokens. will look like this: "\<\|endoftext\|\>|\<\|somespeicaltoken\|\>"
+        self.split_pattern = "|".join(self.escaped_tokens)
 
         # master count -> this will be passes to the tokenizer and will holdl final count map of each pretoken
         self.master_count = Counter()
 
         self.num_processes = num_processes
 
-    @staticmethod
-    def find_chunk_boundaries(file, desired_num_chunks):
+    def find_chunk_boundaries(self, file, desired_num_chunks):
         """
         Chunk the file into parts that can be counted independently.
         May return fewer chunks if the boundaries end up overlapping.
         """
-        
+
         # updated the assert code they gave to work for multiple special tokens
         assert all([isinstance(special_token,
                                bytes)
-                    for special_token in ChunkPreTokenizer.special_tokens]), "Must represent special token as a bytestring"
+                    for special_token in self.special_tokens]), "Must represent special token as a bytestring"
 
         # Get total file size in bytes
         file.seek(0, os.SEEK_END)
@@ -68,7 +64,7 @@ class ChunkPreTokenizer:
                     break
 
                 # Find the special token in the mini chunk
-                found_at = mini_chunk.find(ChunkPreTokenizer.endoftext)
+                found_at = mini_chunk.find(self.endoftext)
                 if found_at != -1:
                     chunk_boundaries[bi] = initial_position + found_at
                     break
@@ -77,8 +73,7 @@ class ChunkPreTokenizer:
         # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
         return sorted(set(chunk_boundaries))
 
-    @staticmethod
-    def process_chunk(args):
+    def process_chunk(self, args):
         """
         helper function to process each chunk parallely.
         splits the chunk of the special tokens, and for each isolated doc increments the token counter
@@ -91,11 +86,11 @@ class ChunkPreTokenizer:
             chunk = f.read(end-start).decode("utf-8",
                                              errors="ignore")
 
-        isolated_docs = re.split(ChunkPreTokenizer.split_pattern, chunk)
+        isolated_docs = re.split(self.split_pattern, chunk)
 
         local_couter = Counter()
         for doc in isolated_docs:
-            local_couter.update(Counter(re.findall(PAT, doc)))
+            local_couter.update(Counter(re.findall(self.PAT, doc)))
 
         return local_couter
 
@@ -120,5 +115,7 @@ class ChunkPreTokenizer:
 
 
 if __name__ == "__main__":
-    pretokenizer = ChunkPreTokenizer(TINYSTORIES_PATH, [b"<|endoftext|>"], 6)
+    from config import NUM_PROCESSORS, TINYSTORIES_PATH, PAT
+
+    pretokenizer = ChunkPreTokenizer(TINYSTORIES_PATH, ["<|endoftext|>"], 6)
     print(len(pretokenizer.create_pretokens()))
