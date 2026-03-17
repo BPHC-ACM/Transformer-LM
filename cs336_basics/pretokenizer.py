@@ -1,7 +1,7 @@
 import os
 from typing import BinaryIO
 from multiprocessing import Pool, Process
-from config import NUM_PROCESSORS, TINYSTORIES_PATH, PAT
+from .config import NUM_PROCESSORS, TINYSTORIES_PATH, PAT
 from collections import Counter
 import regex as re
 
