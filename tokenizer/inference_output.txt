@@ -1,0 +1,53 @@
+--------------------------------------------------
+Original Text : Hello there, i am Siddharth
+Token IDs     : [1482, 383, 44, 32, 105, 1311, 300, 291, 100, 104, 465, 104]
+Tokens Array  : ['Hello', ' there', ',', ' ', 'i', ' am', ' S', 'id', 'd', 'h', 'art', 'h']
+Mapping Breakdown:
+  * 'Hello'         -> 1482
+  * ' there'        -> 383
+  * ','             -> 44
+  * ' '             -> 32
+  * 'i'             -> 105
+  * ' am'           -> 1311
+  * ' S'            -> 300
+  * 'id'            -> 291
+  * 'd'             -> 100
+  * 'h'             -> 104
+  * 'art'           -> 465
+  * 'h'             -> 104
+--------------------------------------------------
+Original Text : Helloooo
+Token IDs     : [72, 584, 330, 330]
+Tokens Array  : ['H', 'ell', 'oo', 'oo']
+Mapping Breakdown:
+  * 'H'             -> 72
+  * 'ell'           -> 584
+  * 'oo'            -> 330
+  * 'oo'            -> 330
+--------------------------------------------------
+Original Text : Hello there
+Token IDs     : [1482, 383]
+Tokens Array  : ['Hello', ' there']
+Mapping Breakdown:
+  * 'Hello'         -> 1482
+  * ' there'        -> 383
+--------------------------------------------------
+Original Text : Hi Hello How are you
+Token IDs     : [1734, 315, 293, 111, 307, 321, 518, 356]
+Tokens Array  : ['Hi', ' He', 'll', 'o', ' H', 'ow', ' are', ' you']
+Mapping Breakdown:
+  * 'Hi'            -> 1734
+  * ' He'           -> 315
+  * 'll'            -> 293
+  * 'o'             -> 111
+  * ' H'            -> 307
+  * 'ow'            -> 321
+  * ' are'          -> 518
+  * ' you'          -> 356
+--------------------------------------------------
+Original Text : Hello there
+Token IDs     : [1482, 383]
+Tokens Array  : ['Hello', ' there']
+Mapping Breakdown:
+  * 'Hello'         -> 1482
+  * ' there'        -> 383
