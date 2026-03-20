@@ -1,10 +1,14 @@
+import numpy as np
 from collections import defaultdict
 from typing import Dict, List, Tuple, Iterable, Iterator
 from collections import Counter
 import regex as re
 import json
+from multiprocessing import Pool
 
 # helper func copied from test code
+
+
 def gpt2_bytes_to_unicode() -> dict[int, str]:
     """
     Returns a mapping between every possible byte (an integer from 0 to 255) to a
@@ -202,7 +206,8 @@ class BPETokenizer:
 
     # load tokenizer from a saved version
     # copied from their version. uses gpt2_bytes_to_unicode
-    def from_files(self, vocab_filepath: str,
+    @classmethod
+    def from_files(cls, vocab_filepath: str,
                    merges_filepath: str,
                    special_tokens: list[str] | None = None
                    ):
@@ -239,7 +244,7 @@ class BPETokenizer:
             for merge_token_1, merge_token_2 in gpt2_bpe_merges
         ]
 
-        self.__init__(vocab, merges, special_tokens)
+        return cls(vocab, merges, special_tokens)
 
     def _apply_bpe(self, word_bytes: bytes) -> list[int]:
         # split pre-tokenized word into individual base bytes
@@ -292,6 +297,15 @@ class BPETokenizer:
         for text_chunk in iterable:
             yield from self.encode(text_chunk)
 
+    def encode_parallel(self, iterable: Iterable[str], num_processes: int = 8) -> Iterator[int]:
+        # we use a context manager to spin up a pool of workers
+        with Pool(num_processes) as p:
+            # pool.imap consumes the iterable lazily and guarantees the output
+            # exactly matches the original input order.
+            # chunksize tells workers to grab a batch of documents at once to reduce overhead.
+            for ids in p.imap(self.encode, iterable, chunksize=100):
+                yield from ids
+
     def decode(self, ids: list[int]) -> str:
 
         # fetch the raw bytes for each id and concatenate them
@@ -301,12 +315,23 @@ class BPETokenizer:
         return raw_bytes.decode("utf-8", errors="replace")
 
 
-if __name__ == "__main__":
-    text = "Héllò hôw <|endoftext|><|endoftext|> are ü? 🙃<|endoftext|>"
+def document_generator(filepath):
+    # lazily yield chunks of text (e.g., line by line or split by your special tokens)
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                yield line
 
-    bpe = BPETokenizer({}, [], None)
-    bpe.from_files("tests/fixtures/gpt2_vocab.json",
-                   "tests/fixtures/gpt2_merges.txt", special_tokens=["<|endoftext|>"])
-    tokenized = bpe.encode(text)
-    print(tokenized)
-    print(bpe.decode(tokenized))
+
+if __name__ == "__main__":
+
+    bpe = BPETokenizer.from_files("tests/fixtures/gpt2_vocab.json",
+                                  "tests/fixtures/gpt2_merges.txt", special_tokens=["<|endoftext|>"])
+
+    token_stream = bpe.encode_parallel(
+        document_generator("cs336_basics/dataset.txt"), num_processes=8)
+
+    # write the tokens directly to disk as uint16 without holding them in ram
+    with open("cs336_basics/encoded_tokens.bin", "wb") as f:
+        for token_id in token_stream:
+            f.write(np.uint16(token_id).tobytes())

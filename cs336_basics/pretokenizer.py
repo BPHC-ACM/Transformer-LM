@@ -8,7 +8,7 @@ import regex as re
 class ChunkPreTokenizer:
     PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
-    def __init__(self, file_path: str,  special_tokens: list[str] = [], num_processes=4):
+    def __init__(self, file_path: str,  special_tokens: list[str] = [], num_processes=8):
         self.file_path = file_path
 
         # if we have user input of speical tokens then update
