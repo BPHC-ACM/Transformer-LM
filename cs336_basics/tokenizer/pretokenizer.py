@@ -115,7 +115,7 @@ class ChunkPreTokenizer:
 
 
 if __name__ == "__main__":
-    from config import NUM_PROCESSORS, TINYSTORIES_PATH, PAT
+    from cs336_basics.tokenizer.config import NUM_PROCESSORS, TINYSTORIES_PATH, PAT
 
     pretokenizer = ChunkPreTokenizer(TINYSTORIES_PATH, ["<|endoftext|>"], 6)
     print(len(pretokenizer.create_pretokens()))
