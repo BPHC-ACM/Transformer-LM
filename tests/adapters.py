@@ -10,9 +10,11 @@ from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 from cs336_basics.tokenizer.pretokenizer import ChunkPreTokenizer
-from cs336_basics.tokenizer.tokenizer import BPETokenizer,BPETrainer
+from cs336_basics.tokenizer.tokenizer import BPETokenizer, BPETrainer
 from cs336_basics.linear import Linear
 from cs336_basics.embedding import Embedding
+from cs336_basics.rmsnorm import RMSNorm
+from cs336_basics.swiglu import SwiGLU
 
 
 def run_linear(
@@ -33,8 +35,8 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
-    L = Linear(d_in,d_out)
-    L.load_state_dict({"W":weights})
+    L = Linear(d_in, d_out)
+    L.load_state_dict({"W": weights})
     return L.forward(in_features)
 
 
@@ -56,8 +58,8 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
-    E = Embedding(vocab_size,d_model)
-    E.load_state_dict({"embedding":weights})
+    E = Embedding(vocab_size, d_model)
+    E.load_state_dict({"embedding": weights})
     return E.forward(token_ids)
     # raise NotImplementedError
 
@@ -91,7 +93,10 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    swiglu = SwiGLU(d_model, d_ff)
+    swiglu.load_state_dict(
+        {"w1_weight": w1_weight, "w2_weight": w2_weight, "w3_weight": w3_weight})
+    return swiglu.forward(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -386,7 +391,9 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    normalizer = RMSNorm(d_model, eps)
+    normalizer.load_state_dict({"gain": weights})
+    return normalizer.forward(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
@@ -567,8 +574,7 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    return BPETokenizer(vocab,merges,special_tokens)
-
+    return BPETokenizer(vocab, merges, special_tokens)
 
 
 def run_train_bpe(
@@ -602,7 +608,8 @@ def run_train_bpe(
     pretokenizer = ChunkPreTokenizer(
         input_path, special_tokens=special_tokens, num_processes=8)
     pretokenizer.create_pretokens()
-    trainer = BPETrainer(pretokenizer.master_count,input_path,special_tokens=special_tokens, vocab_size=vocab_size)
+    trainer = BPETrainer(pretokenizer.master_count, input_path,
+                         special_tokens=special_tokens, vocab_size=vocab_size)
     vocab, merges = trainer.train()
 
     del pretokenizer
