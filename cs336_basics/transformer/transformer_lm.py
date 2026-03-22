@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from cs336_basics.transformer_block import TransformerBlock
-from cs336_basics.rmsnorm import RMSNorm
-from cs336_basics.linear import Linear
+from cs336_basics.transformer.transformer_block import TransformerBlock
+from cs336_basics.transformer.rmsnorm import RMSNorm
+from cs336_basics.transformer.linear import Linear
 
 
 class TransformerLM(nn.Module):

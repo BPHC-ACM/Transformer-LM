@@ -11,16 +11,16 @@ from torch import Tensor
 
 from cs336_basics.tokenizer.pretokenizer import ChunkPreTokenizer
 from cs336_basics.tokenizer.tokenizer import BPETokenizer, BPETrainer
-from cs336_basics.linear import Linear
-from cs336_basics.embedding import Embedding
-from cs336_basics.rmsnorm import RMSNorm
-from cs336_basics.swiglu import SwiGLU
-from cs336_basics.rope import RoPE
-from cs336_basics.softmax import softmax
-from cs336_basics.scaled_dot_product_attention import scaled_dot_product_attention
-from cs336_basics.multihead_self_attention import MultiHeadSelfAttention
-from cs336_basics.transformer_block import TransformerBlock
-from cs336_basics.transformer_lm import TransformerLM
+from cs336_basics.transformer.linear import Linear
+from cs336_basics.transformer.embedding import Embedding
+from cs336_basics.transformer.rmsnorm import RMSNorm
+from cs336_basics.transformer.swiglu import SwiGLU
+from cs336_basics.transformer.rope import RoPE
+from cs336_basics.transformer.softmax import softmax
+from cs336_basics.transformer.scaled_dot_product_attention import scaled_dot_product_attention
+from cs336_basics.transformer.multihead_self_attention import MultiHeadSelfAttention
+from cs336_basics.transformer.transformer_block import TransformerBlock
+from cs336_basics.transformer.transformer_lm import TransformerLM
 
 
 def run_linear(

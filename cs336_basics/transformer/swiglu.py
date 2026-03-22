@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from einops import einsum
-from cs336_basics.linear import Linear
+from cs336_basics.transformer.linear import Linear
 
 
 class SwiGLU(nn.Module):
