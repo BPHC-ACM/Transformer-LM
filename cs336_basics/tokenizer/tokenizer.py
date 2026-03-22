@@ -6,9 +6,9 @@ import regex as re
 import json
 from multiprocessing import Pool
 
+
+
 # helper func copied from test code
-
-
 def gpt2_bytes_to_unicode() -> dict[int, str]:
     """
     Returns a mapping between every possible byte (an integer from 0 to 255) to a
@@ -328,12 +328,10 @@ if __name__ == "__main__":
     bpe = BPETokenizer.from_files("tests/fixtures/gpt2_vocab.json",
                                   "tests/fixtures/gpt2_merges.txt", special_tokens=["<|endoftext|>"])
 
-    print(bpe.decode([907, 5061, 9813, 7793, 6212,
-          7893, 3454, 8112, 6322, 2511, 2434, 6879]))
-    # token_stream = bpe.encode_parallel(
-    #     document_generator("cs336_basics/tokenizer/dataset.txt"), num_processes=8)
+    token_stream = bpe.encode_parallel(
+        document_generator("cs336_basics/tokenizer/dataset.txt"), num_processes=8)
 
-    # # write the tokens directly to disk as uint16 without holding them in ram
-    # with open("cs336_basics/tokenizer/encoded_tokens.bin", "wb") as f:
-    #     for token_id in token_stream:
-    #         f.write(np.uint16(token_id).tobytes())
+    # write the tokens directly to disk as uint16 without holding them in ram
+    with open("cs336_basics/tokenizer/encoded_tokens.bin", "wb") as f:
+        for token_id in token_stream:
+            f.write(np.uint16(token_id).tobytes())

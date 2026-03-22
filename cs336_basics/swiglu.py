@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from einops import einsum
+from cs336_basics.linear import Linear
 
 
 class SwiGLU(nn.Module):
@@ -13,20 +14,20 @@ class SwiGLU(nn.Module):
         if d_ff is not None:
             self.d_ff = d_ff
         else:
-            self.d_ff = (8/3)*self.d_model
+            self.d_ff = int((8/3)*self.d_model)
 
-        self.w1_weight = nn.Parameter(torch.empty(
-            (self.d_ff, self.d_model, ), device=device, dtype=dtype))
-        self.w2_weight = nn.Parameter(torch.empty(
-            (self.d_model, self.d_ff, ), device=device, dtype=dtype))
-        self.w3_weight = nn.Parameter(torch.empty(
-            (self.d_ff, self.d_model), device=device, dtype=dtype))
+        self.w1_weight = Linear(self.d_model, self.d_ff,
+                                device=device, dtype=dtype)
+        self.w2_weight = Linear(self.d_ff, self.d_model,
+                                device=device, dtype=dtype)
+        self.w3_weight = Linear(self.d_model, self.d_ff,
+                                device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        m1 = einsum(self.w1_weight, x, "d_ff d_model, ... d_model -> ... d_ff")
-        m2 = einsum(self.w3_weight, x, "d_ff d_model, ... d_model -> ... d_ff")
+        m1 = self.w1_weight(x)
+        m2 = self.w3_weight(x)
         m3 = self.silu(m1) * (m2)
-        return einsum(self.w2_weight, m3, "d_model d_ff, ... d_ff -> ... d_model ")
+        return self.w2_weight(m3)
 
     def silu(self, x: torch.Tensor) -> torch.Tensor:
         return x/(1+torch.exp(-x))

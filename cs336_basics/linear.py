@@ -19,5 +19,5 @@ class Linear(nn.Module):
             self.W, self.mean, self.std, -3*self.std, 3*self.std)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        y = einsum(self.W, x, "d_out d_in ,... d_in -> ... d_out")
+        y = einsum(x, self.W, " ... d_in ,d_out d_in-> ... d_out")
         return y

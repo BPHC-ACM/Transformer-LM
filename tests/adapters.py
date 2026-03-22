@@ -15,6 +15,12 @@ from cs336_basics.linear import Linear
 from cs336_basics.embedding import Embedding
 from cs336_basics.rmsnorm import RMSNorm
 from cs336_basics.swiglu import SwiGLU
+from cs336_basics.rope import RoPE
+from cs336_basics.softmax import softmax
+from cs336_basics.scaled_dot_product_attention import scaled_dot_product_attention
+from cs336_basics.multihead_self_attention import MultiHeadSelfAttention
+from cs336_basics.transformer_block import TransformerBlock
+from cs336_basics.transformer_lm import TransformerLM
 
 
 def run_linear(
@@ -95,7 +101,7 @@ def run_swiglu(
     # swiglu.w3.weight.data = w3_weight
     swiglu = SwiGLU(d_model, d_ff)
     swiglu.load_state_dict(
-        {"w1_weight": w1_weight, "w2_weight": w2_weight, "w3_weight": w3_weight})
+        {"w1_weight.W": w1_weight, "w2_weight.W": w2_weight, "w3_weight.W": w3_weight})
     return swiglu.forward(in_features)
 
 
@@ -117,7 +123,7 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    return scaled_dot_product_attention(Q, K, V, mask)
 
 
 def run_multihead_self_attention(
@@ -151,7 +157,12 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+
+    mhsa = MultiHeadSelfAttention(d_model, num_heads)
+    mhsa.load_state_dict({"W_q.W": q_proj_weight, "W_k.W": k_proj_weight,
+                         "W_v.W": v_proj_weight, "W_o.W": o_proj_weight})
+
+    return mhsa.forward_without_rope(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -191,7 +202,11 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    mhsa = MultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta)
+    mhsa.load_state_dict({"W_q.W": q_proj_weight, "W_k.W": k_proj_weight,
+                         "W_v.W": v_proj_weight, "W_o.W": o_proj_weight})
+
+    return mhsa.forward_with_rope(in_features, token_positions)
 
 
 def run_rope(
@@ -213,7 +228,8 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    rope = RoPE(theta, d_k, max_seq_len)
+    return rope.forward(in_query_or_key, token_positions)
 
 
 def run_transformer_block(
@@ -233,60 +249,42 @@ def run_transformer_block(
     Depending on your implementation, you may simply need to pass the relevant args
     to your TransformerBlock constructor, or you may need to initialize your own RoPE
     class and pass that instead.
-
-    Args:
-        d_model (int): The dimensionality of the Transformer block input.
-        num_heads (int): Number of heads to use in multi-headed attention. `d_model` must be
-            evenly divisible by `num_heads`.
-        d_ff (int): Dimensionality of the feed-forward inner layer.
-        max_seq_len (int): Maximum sequence length to pre-cache if your implementation does that.
-        theta (float): RoPE parameter.
-        weights (dict[str, Tensor]):
-            State dict of our reference implementation.
-            The keys of this dictionary are:
-            - `attn.q_proj.weight`
-                The query projections for all `num_heads` attention heads.
-                Shape is (d_model, d_model).
-                The rows are ordered by matrices of shape (num_heads, d_k),
-                so `attn.q_proj.weight == torch.cat([q_heads.0.weight, ..., q_heads.N.weight], dim=0)`.
-            - `attn.k_proj.weight`
-                The key projections for all `num_heads` attention heads.
-                Shape is (d_model, d_model).
-                The rows are ordered by matrices of shape (num_heads, d_k),
-                so `attn.k_proj.weight == torch.cat([k_heads.0.weight, ..., k_heads.N.weight], dim=0)`.
-            - `attn.v_proj.weight`
-                The value projections for all `num_heads` attention heads.
-                Shape is (d_model, d_model).
-                The rows are ordered by matrices of shape (num_heads, d_v),
-                so `attn.v_proj.weight == torch.cat([v_heads.0.weight, ..., v_heads.N.weight], dim=0)`.
-            - `attn.output_proj.weight`
-                Weight of the multi-head self-attention output projection
-                Shape is (d_model, d_model).
-            - `ln1.weight`
-                Weights of affine transform for the first RMSNorm
-                applied in the transformer block.
-                Shape is (d_model,).
-            - `ffn.w1.weight`
-                Weight of the first linear transformation in the FFN.
-                Shape is (d_model, d_ff).
-            - `ffn.w2.weight`
-                Weight of the second linear transformation in the FFN.
-                Shape is (d_ff, d_model).
-            - `ffn.w3.weight`
-                Weight of the third linear transformation in the FFN.
-                Shape is (d_model, d_ff).
-            - `ln2.weight`
-                Weights of affine transform for the second RMSNorm
-                applied in the transformer block.
-                Shape is (d_model,).
-        in_features (Float[Tensor, "batch sequence_length d_model"]):
-            Tensor to run your implementation on.
-
-    Returns:
-        Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
-        running the Transformer block on the input features while using RoPE.
+    # ... (rest of your original docstring)
     """
-    raise NotImplementedError
+    tf = TransformerBlock(d_model, num_heads, d_ff, max_seq_len, theta)
+
+    # move model to the same device as the input to avoid device mismatch crashes
+    tf.to(in_features.device)
+
+    attn = tf.mha
+    ln1 = tf.norm_1
+    ln2 = tf.norm_2
+    ffn = tf.ff
+
+    attn.load_state_dict({
+        "W_q.W": weights["attn.q_proj.weight"],
+        "W_k.W": weights["attn.k_proj.weight"],
+        "W_v.W": weights["attn.v_proj.weight"],
+        "W_o.W": weights["attn.output_proj.weight"]
+    })
+
+    ln1.load_state_dict({"gain": weights["ln1.weight"]})
+    ln2.load_state_dict({"gain": weights["ln2.weight"]})
+
+    # linear uses .W, not .weight
+    ffn.load_state_dict({
+        "w1_weight.W": weights["ffn.w1.weight"],
+        "w2_weight.W": weights["ffn.w2.weight"],
+        "w3_weight.W": weights["ffn.w3.weight"]
+    })
+
+    # generate missing token positions for the forward pass
+    seq_len = in_features.size(1)
+    token_positions = torch.arange(seq_len, device=in_features.device)
+    token_positions = token_positions.expand(in_features.shape[:-1])
+
+    # return the actual forward pass output, not the class object
+    return tf(in_features, token_positions)
 
 
 def run_transformer_lm(
@@ -368,7 +366,41 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+
+    tf_lm = TransformerLM(vocab_size, context_length,
+                          num_layers, d_model, num_heads, d_ff, rope_theta)
+    tf_lm.to(in_indices.device)
+
+    # build one massive dictionary for the entire model
+    state_dict = {}
+
+    # embeddings and lm head
+    # (assuming you used nn.Embedding which defaults to .weight)
+    state_dict["token_embed.weight"] = weights["token_embeddings.weight"]
+    state_dict["lm_head.W"] = weights["lm_head.weight"]
+    state_dict["final_norm.gain"] = weights["ln_final.weight"]
+
+    # loop through blocks and construct the full path for each weight
+    for layer in range(num_layers):
+        # attention weights
+        state_dict[f"blocks.{layer}.mha.W_q.W"] = weights[f"layers.{layer}.attn.q_proj.weight"]
+        state_dict[f"blocks.{layer}.mha.W_k.W"] = weights[f"layers.{layer}.attn.k_proj.weight"]
+        state_dict[f"blocks.{layer}.mha.W_v.W"] = weights[f"layers.{layer}.attn.v_proj.weight"]
+        state_dict[f"blocks.{layer}.mha.W_o.W"] = weights[f"layers.{layer}.attn.output_proj.weight"]
+
+        # normalization weights (using your native .gain name)
+        state_dict[f"blocks.{layer}.norm_1.gain"] = weights[f"layers.{layer}.ln1.weight"]
+        state_dict[f"blocks.{layer}.norm_2.gain"] = weights[f"layers.{layer}.ln2.weight"]
+
+        # feed-forward weights
+        state_dict[f"blocks.{layer}.ff.w1_weight.W"] = weights[f"layers.{layer}.ffn.w1.weight"]
+        state_dict[f"blocks.{layer}.ff.w2_weight.W"] = weights[f"layers.{layer}.ffn.w2.weight"]
+        state_dict[f"blocks.{layer}.ff.w3_weight.W"] = weights[f"layers.{layer}.ffn.w3.weight"]
+
+    # final norm weight
+    tf_lm.load_state_dict(state_dict)
+
+    return tf_lm.forward(in_indices)
 
 
 def run_rmsnorm(
@@ -446,6 +478,7 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
         Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
+    return softmax(in_features, dim)
     raise NotImplementedError
 
 
